@@ -58,3 +58,8 @@ register(
     id="HandoverHandCameraPointStateEnv-v1",
     entry_point="handover.handover_env:HandoverHandCameraPointStateEnv",
 )
+
+register(
+    id="HandoverPerActStateEnv-v1",
+    entry_point="handover.handover_env:HandoverPerActStateEnv",
+)
