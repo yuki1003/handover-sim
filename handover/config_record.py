@@ -14,7 +14,7 @@ _C = cfg
 # ---------------------------------------------------------------------------- #
 # Simulation config
 # ---------------------------------------------------------------------------- #
-_C.SIM.RENDER = True
+_C.SIM.RENDER = False
 
 _C.SIM.TIME_STEP = 0.001
 
@@ -56,7 +56,7 @@ _C.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_VER = 0.2 # Vertical distance w.r.t
 # Benchmark config
 # ---------------------------------------------------------------------------- #
 
-_C.BENCHMARK.SETUP = "s0"
+_C.BENCHMARK.SETUP = "s1"
 
 _C.BENCHMARK.SPLIT = "train"
 
@@ -64,7 +64,7 @@ _C.BENCHMARK.HANDOVER_OBJECTS = ["banana"]
 
 _C.BENCHMARK.DRAW_GOAL = False
 
-_C.BENCHMARK.RECORD = False
+_C.BENCHMARK.RECORD = True
 
 _C.BENCHMARK.RECORD_DIR = "task_data/handoversim/{}_{}".format(_C.BENCHMARK.SPLIT, _C.BENCHMARK.SETUP)
 

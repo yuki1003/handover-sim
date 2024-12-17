@@ -368,6 +368,8 @@ class YangICRA2021Policy:
                 ik_cfg = self._compute_ik(q_next, current_cfg)
                 action[0:7] = ik_cfg
                 gripper_object_distance = np.linalg.norm(ee_pose[0:3]-object_pose[0:3])
+                if gripper_object_distance < 0.3:
+                    input("Press Enter to continue:")
                 self._approach = gripper_object_distance
             else:
                 # Move on to closing gipper and backing.

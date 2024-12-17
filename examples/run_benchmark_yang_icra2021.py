@@ -380,6 +380,7 @@ class YangICRA2021Policy:
 
 def main():
     cfg = get_config_from_args()
+    cfg.SIM.RENDER=True
 
     policy = YangICRA2021Policy(cfg)
 
