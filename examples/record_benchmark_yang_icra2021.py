@@ -344,10 +344,11 @@ class YangICRA2021Policy:
 
         if not self._in_approach_region(ee_pose):
             # Go to standoff pose.
-            for i, (_, opt_standoff, opt_grasp) in enumerate(sorted(zip(costs, opts_standoff, opts_grasp), key=lambda x: x[0])):
+            for i, (_, opt_standoff, opt_grasp) in enumerate(sorted(zip(costs, opts_standoff, opts_grasp), key=lambda x: x[0])): # Takes the best
                 if i >= self._max_opts:
                     self._q_standoff = None
                     break
+                opt_standoff[0:3] = simple_extend(ee_pose[0:3], opt_standoff[0:3], step_size = 0.05)
                 ik_cfg = self._compute_ik(opt_standoff, current_cfg)
                 if ik_cfg is None:
                     continue
@@ -368,8 +369,8 @@ class YangICRA2021Policy:
                 ik_cfg = self._compute_ik(q_next, current_cfg)
                 action[0:7] = ik_cfg
                 gripper_object_distance = np.linalg.norm(ee_pose[0:3]-object_pose[0:3])
-                if gripper_object_distance < 0.3:
-                    input("Press Enter to continue:")
+                # if gripper_object_distance < 0.3:
+                #     input("Press Enter to continue:")
                 self._approach = gripper_object_distance
             else:
                 # Move on to closing gipper and backing.

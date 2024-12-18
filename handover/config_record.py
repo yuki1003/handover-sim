@@ -66,7 +66,7 @@ _C.BENCHMARK.DRAW_GOAL = False
 
 _C.BENCHMARK.RECORD = True
 
-_C.BENCHMARK.RECORD_DIR = "task_data/handoversim/{}_{}".format(_C.BENCHMARK.SPLIT, _C.BENCHMARK.SETUP)
+_C.BENCHMARK.RECORD_DIR = "task_data/handoversim_v2/{}_{}".format(_C.BENCHMARK.SPLIT, _C.BENCHMARK.SETUP)
 
 _C.BENCHMARK.RENDER_FRAME_RATE = 60 # camera feed rate - NOTE: PerAct Expert Demonstration recording collects data at 20 Hz
 
