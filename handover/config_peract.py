@@ -38,8 +38,8 @@ _C.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_VER = 0.2 # Vertical distance w.r.t
 # ---------------------------------------------------------------------------- #
 # Benchmark config
 # ---------------------------------------------------------------------------- #
-_C.BENCHMARK.SETUP = "s1"
-_C.BENCHMARK.SPLIT = "train"
+_C.BENCHMARK.SETUP = "s1" # {'s0', 's1', etc.}
+_C.BENCHMARK.SPLIT = "train" #{'train', 'val', 'test'}
 _C.BENCHMARK.HANDOVER_OBJECTS = ["banana", "power_drill"]
 
 _C.BENCHMARK.MAX_EPISODE_TIME = 10.0
