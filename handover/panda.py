@@ -161,7 +161,7 @@ class PandaPerActCamera(Panda):
 
         self.fingers_default_distance = 0.08
 
-        self.setup_wrist_camera()
+        self.setup_wrist_camera(cfg)
 
         self._cameras = []
         self.setup_scene_cameras(cfg)
@@ -170,17 +170,17 @@ class PandaPerActCamera(Panda):
         orn = Rot.from_euler("XYZ", (-np.pi / 2, 0.0, -np.pi)).as_quat().astype(np.float32)
         self._quat_urdf_to_opengl = torch.from_numpy(orn)
 
-    def setup_wrist_camera(self):
+    def setup_wrist_camera(self, cfg):
 
         camera_wrist = PerActCamera()
         camera_wrist.name = "wrist_cam"
-        camera_wrist.width = 128
-        camera_wrist.height = 128
-        camera_wrist.vertical_fov = 90
+        camera_wrist.width = cfg.ENV.RENDERER_CAMERA_WIDTH
+        camera_wrist.height = cfg.ENV.RENDERER_CAMERA_HEIGHT
+        camera_wrist.vertical_fov = cfg.ENV.RENDERER_CAMERA_VERTICAL_FOV
         camera_wrist.near = 0.035 # Minimum required distance to not clip with camera/panda
         camera_wrist.far = 2.0
         camera_wrist.position = [(0.0, 0.0, 0.0)] # NOTE: Overwritten later
-        camera_wrist.orientation = [(0.0, 0.0, 0.0, 1.0)] # NOTE: Overwritten later
+        camera_wrist.orientation = [(0.0, 0.0, 0.0, 0.0)] # NOTE: Overwritten later
         self._scene.add_camera(camera_wrist)
         self._camera_wrist = camera_wrist
 
@@ -251,10 +251,10 @@ class PandaPerActCamera(Panda):
         return self._camera_wrist.extrinsic_matrix
     
     def camera_wrist_near(self):
-        return self._camera_wrist.near
+        return 0#self._camera_wrist.near
     
     def camera_wrist_far(self):
-        return self._camera_wrist.far
+        return 1#self._camera_wrist.far
     
 
     def render_camera_scene(self, camera_number):
