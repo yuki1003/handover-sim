@@ -46,11 +46,11 @@ _C.ENV.RENDERER_CAMERA_NEAR = 0.1 #NOTE: Starting the render
 
 _C.ENV.RENDERER_CAMERA_FAR = 4 #10 #NOTE:How far the render is (Cut-off point)
 
-_C.ENV.PERACT_RENDERER_CAMERA_SCENE_AMOUNT = 3 # Create radial number of cameras
+_C.ENV.PERACT_RENDERER_CAMERA_SCENE_AMOUNT = 6 # Create radial number of cameras
 
-_C.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_HOR = 1 # Horizontal distance w.r.t. goal
+_C.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_HOR = 0.3 # Horizontal distance w.r.t. goal
 
-_C.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_VER = 0.2 # Vertical distance w.r.t. goal
+_C.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_VER = 0.3 # Vertical distance w.r.t. goal
 
 # ---------------------------------------------------------------------------- #
 # Benchmark config
@@ -61,12 +61,20 @@ _C.BENCHMARK.SETUP = "s1"
 _C.BENCHMARK.SPLIT = "train"
 
 _C.BENCHMARK.HANDOVER_OBJECTS = ["banana"]
-
+# "pitcher_base",
+# "bleach_cleanser",
+# "bowl",
+# "mug",
+# "power_drill",
+# "scissors",
+# "large_marker",
+# "extra_large_clamp",
+# "foam_brick",
 _C.BENCHMARK.DRAW_GOAL = False
 
 _C.BENCHMARK.RECORD = True
 
-_C.BENCHMARK.RECORD_DIR = "task_data/handoversim_v2/{}_{}".format(_C.BENCHMARK.SPLIT, _C.BENCHMARK.SETUP)
+_C.BENCHMARK.RECORD_DIR = "/media/ywatabe/ESD-USB/task_data/handoversim_v3/{}_{}".format(_C.BENCHMARK.SPLIT, _C.BENCHMARK.SETUP)
 
 _C.BENCHMARK.RENDER_FRAME_RATE = 60 # camera feed rate - NOTE: PerAct Expert Demonstration recording collects data at 20 Hz
 

@@ -340,11 +340,11 @@ class BenchmarkRLBenchRecorder:
 
         for camera in cameras:
             if camera == "wrist":
-                # camera_renders = obs[f"callback_render_camera_{camera}"]()
-                # # camera_near = obs[f"callback_camera_{camera}_near"]()
-                # # camera_far = obs[f"callback_camera_{camera}_far"]()
-                # camera = f"camera_{camera}"
-                continue
+                camera_renders = obs[f"callback_render_camera_{camera}"]()
+                # camera_near = obs[f"callback_camera_{camera}_near"]()
+                # camera_far = obs[f"callback_camera_{camera}_far"]()
+                camera = f"{camera}"
+                continue # Skip wrist camera
             else:
                 camera_renders = obs[f"callback_render_camera_scene"](camera)
                 # camera_near = obs[f"callback_camera_scene_near"]()
@@ -364,7 +364,7 @@ class BenchmarkRLBenchRecorder:
                     camera_render = camera_render * 1000 #np.clip(camera_render, 0, None) * 1000
                     camera_render = camera_render.astype(np.uint16)
                 elif render_type == "mask":
-                    continue
+                    continue # Skip mask
 
                 cv2.imwrite(render_file, camera_render)
 
