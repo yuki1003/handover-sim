@@ -5,9 +5,10 @@
 import easysim
 import abc
 import numpy as np
+import torch
 
 from handover.table import Table
-from handover.panda import Panda, PandaHandCamera
+from handover.panda import Panda, PandaHandCamera, PandaPerActCamera
 from handover.dex_ycb import DexYCB
 from handover.ycb import YCB
 from handover.mano import MANO
@@ -399,3 +400,72 @@ class HandoverHandCameraPointStateEnv(HandoverEnv):
                 self._point_states.append(np.zeros((0, 3), dtype=np.float32))
 
         return self._point_states
+    
+
+class HandoverPerActStateEnv(HandoverEnv):
+    def _get_panda_cls(self):
+        return PandaPerActCamera
+    
+    def post_reset(self, env_ids, scene_id):
+
+        return super().post_reset(env_ids, scene_id)
+
+    def post_step(self, action):
+
+        return super().post_step(action)
+
+    def _get_observation(self):
+        observation = {}
+        observation["frame"] = self.frame
+        observation["panda_link_ind_hand"] = self.panda.LINK_IND_HAND
+        observation["panda_body"] = self.panda.body
+        observation["ycb_classes"] = self.ycb.CLASSES
+        observation["ycb_bodies"] = self.ycb.bodies
+        observation["mano_body"] = self.mano.body
+
+        # Set callback (and render)
+        observation["callback_render_camera_wrist"] = self.panda.render_camera_wrist
+        observation["callback_render_camera_scene"] = self.panda.render_camera_scene
+
+        # Proprioception wrist camera
+        observation["callback_camera_wrist_intrinsics"] = self.panda.camera_wrist_intrinsics
+        observation["callback_camera_wrist_extrinsics"] = self.panda.camera_wrist_extrinsics
+        observation["callback_camera_wrist_near"] = self.panda.camera_wrist_near
+        observation["callback_camera_wrist_far"] = self.panda.camera_wrist_far
+
+        # Proprioception scene cameras
+        observation["callback_camera_scene_intrinsics"] = self.panda.camera_scene_intrinsics
+        observation["callback_camera_scene_extrinsics"] = self.panda.camera_scene_extrinsics
+        observation["callback_camera_scene_near"] = self.panda.camera_scene_near
+        observation["callback_camera_scene_far"] = self.panda.camera_scene_far
+
+        # Proprioception robot
+        observation["callback_joint_angles"] = self.panda.joint_angles
+        observation["callback_joint_velocities"] = self.panda.joint_velocities
+        observation["callback_gripper_open"] = self.panda.gripper_open
+        observation["callback_finger_positions"] = self.panda.finger_positions
+        observation["callback_gripper_pose"] = self.panda.gripper_pose
+
+        return observation
+
+    def _get_reward(self):
+        return None
+
+    def _get_done(self):
+        return False
+
+    def _get_info(self):
+        return {}
+    
+def _quaternion_multiplication(q1, q2):
+    q1x, q1y, q1z, q1w = torch.unbind(q1, axis=-1)
+    q2x, q2y, q2z, q2w = torch.unbind(q2, axis=-1)
+    return torch.stack(
+        (
+            q1w * q2x + q1x * q2w + q1y * q2z - q1z * q2y,
+            q1w * q2y - q1x * q2z + q1y * q2w + q1z * q2x,
+            q1w * q2z + q1x * q2y - q1y * q2x + q1z * q2w,
+            q1w * q2w - q1x * q2x - q1y * q2y - q1z * q2z,
+        ),
+        axis=-1,
+    )

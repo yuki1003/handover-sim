@@ -10,10 +10,8 @@ import pybullet_utils.bullet_client as bullet_client
 
 from scipy.spatial.transform import Rotation as Rot
 
-from handover.config import get_config_from_args
-from handover.benchmark_runner import BenchmarkRunner
-
-from demo_benchmark_wrapper import start_conf, time_wait
+from handover.config_record import get_config_from_args
+from handover.benchmark_recorder import BenchmarkRLBenchRecorder
 
 panda_urdf_file = os.path.join(
     os.path.dirname(handover.__file__), "data", "assets", "franka_panda", "panda_gripper.urdf"
@@ -215,14 +213,17 @@ def simple_extend(q1, q2, step_size=0.1):
 
 
 class YangICRA2021Policy:
-    def __init__(self, cfg, time_wait=time_wait, time_action_repeat=0.1, time_close_gripper=0.5):
+    def __init__(self, cfg, time_wait=1.0, time_action_repeat=0.1, time_close_gripper=0.5):
         self._cfg = cfg
         self._steps_wait = int(time_wait / self._cfg.SIM.TIME_STEP)
         self._steps_action_repeat = int(time_action_repeat / self._cfg.SIM.TIME_STEP)
         self._steps_close_gripper = int(time_close_gripper / self._cfg.SIM.TIME_STEP)
 
+        self._start_position = self._cfg.ENV.PANDA_INITIAL_POSITION
+
         self._to_ee_frame = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.7071068, -0.7071068])
         self._standoff_offset = np.array([0.0, 0.0, -0.2, 0.0, 0.0, 0.0, 1.0])
+        self._standoff_wait_time = int(0.0 / self._cfg.SIM.TIME_STEP)
 
         self._base_wt = 1.0
         self._home_wt = 1.0
@@ -255,37 +256,44 @@ class YangICRA2021Policy:
         self._action_repeat = None
         self._back = None
 
+        self._standoff_timestamp = None
+
     def forward(self, obs):
+
+        info_dict = dict()
+        self._approach = None
+
         if self._current_grasps is None:
             self._current_grasps = self._load_grasps(obs)
 
-        if obs["frame"] < self._steps_wait:
-            action = start_conf.copy()
-        else:
-            if not self._done:
-                if (obs["frame"] - self._steps_wait) % self._steps_action_repeat == 0:
+        if obs["frame"] < self._steps_wait: # NOTE: Start of run: wait/warm-up
+            action = self._start_position
+        else: # NOTE: Running Policy
+            if not self._done: # NOTE: Running action
+                if (obs["frame"] - self._steps_wait) % self._steps_action_repeat == 0: # NOTE: Running action
                     current_cfg = self._get_current_cfg(obs)
                     object_pose = self._get_object_pose(obs)
                     ee_pose = self._get_ee_pose(obs)
-                    action = self._get_reactive_policy_action(current_cfg, object_pose, ee_pose)
+                    action = self._get_reactive_policy_action(current_cfg, object_pose, ee_pose, (obs["frame"]-self._steps_wait))
                     self._action_repeat = action.copy()
                 else:
                     action = self._action_repeat.copy()
 
-            if self._done:
+            if self._done: # NOTE: gripper at object
                 if self._done_frame is None:
                     self._done_frame = obs["frame"]
-                if obs["frame"] < self._done_frame + self._steps_close_gripper:
+                if obs["frame"] < self._done_frame + self._steps_close_gripper: # NOTE: Run action to close gripper
+                    # print("gripper:", self._get_current_cfg(obs)[7:9])
                     current_cfg = self._get_current_cfg(obs)
                     action = current_cfg.copy()
                     action[7:9] = 0.0
-                else:
+                else: # NOTE: Retract
                     if self._back is None:
                         current_cfg = self._get_current_cfg(obs)
                         self._back = self._get_back(current_cfg)
                     action = self._back.copy()
 
-        return action, {}
+        return action, info_dict
 
     def _load_grasps(self, obs):
         class_name = obs["ycb_classes"][list(obs["ycb_bodies"])[0]]
@@ -309,7 +317,7 @@ class YangICRA2021Policy:
     def _get_ee_pose(self, obs):
         return obs["panda_body"].link_state[0, obs["panda_link_ind_hand"], 0:7].numpy()
 
-    def _get_reactive_policy_action(self, current_cfg, object_pose, ee_pose):
+    def _get_reactive_policy_action(self, current_cfg, object_pose, ee_pose, timestamp):
         if self._q_standoff is None:
             q0 = ee_pose
         else:
@@ -336,12 +344,11 @@ class YangICRA2021Policy:
 
         if not self._in_approach_region(ee_pose):
             # Go to standoff pose.
-            for i, (_, opt_standoff, opt_grasp) in enumerate(
-                sorted(zip(costs, opts_standoff, opts_grasp), key=lambda x: x[0])
-            ):
+            for i, (_, opt_standoff, opt_grasp) in enumerate(sorted(zip(costs, opts_standoff, opts_grasp), key=lambda x: x[0])): # Takes the best
                 if i >= self._max_opts:
                     self._q_standoff = None
                     break
+                opt_standoff[0:3] = simple_extend(ee_pose[0:3], opt_standoff[0:3], step_size = 0.05)
                 ik_cfg = self._compute_ik(opt_standoff, current_cfg)
                 if ik_cfg is None:
                     continue
@@ -351,13 +358,20 @@ class YangICRA2021Policy:
                 self._at_grasp_pose.set_goal(self._q_grasp)
                 action[0:7] = ik_cfg
                 break
-        else:
+            # self._standoff_timestamp = timestamp
+        else: # Gripper is at standoff "approach" location (pre-grasp)
+            # if self._standoff_timestamp is None:
             if not self._at_grasp_pose(ee_pose):
+                # TODO: Find the distance and save
                 # Go to grasp pose.
                 q_next = self._q_grasp.copy()
                 q_next[0:3] = simple_extend(ee_pose[0:3], self._q_grasp[0:3], step_size=0.05)
                 ik_cfg = self._compute_ik(q_next, current_cfg)
                 action[0:7] = ik_cfg
+                gripper_object_distance = np.linalg.norm(ee_pose[0:3]-object_pose[0:3])
+                # if gripper_object_distance < 0.3:
+                #     input("Press Enter to continue:")
+                self._approach = gripper_object_distance
             else:
                 # Move on to closing gipper and backing.
                 self._done = True
@@ -380,12 +394,16 @@ class YangICRA2021Policy:
 
 def main():
     cfg = get_config_from_args()
-    cfg.SIM.RENDER=True
 
-    policy = YangICRA2021Policy(cfg)
+    time_wait = cfg.BENCHMARK.TIME_WAIT
+    time_action_repeat = cfg.BENCHMARK.TIME_ACTION_REPEAT
 
-    benchmark_runner = BenchmarkRunner(cfg)
-    benchmark_runner.run(policy)
+    policy = YangICRA2021Policy(cfg,
+                                time_wait=time_wait,
+                                time_action_repeat=time_action_repeat)
+    record_dir = cfg.BENCHMARK.RECORD_DIR
+    benchmark_runner = BenchmarkRLBenchRecorder(cfg)
+    benchmark_runner.run(policy, record_dir=record_dir)
 
 
 if __name__ == "__main__":

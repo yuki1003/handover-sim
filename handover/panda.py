@@ -42,7 +42,7 @@ class Panda:
             self._cfg.ENV.PANDA_BASE_POSITION + self._cfg.ENV.PANDA_BASE_ORIENTATION
         )
         body.initial_dof_position = self._cfg.ENV.PANDA_INITIAL_POSITION
-        body.initial_dof_velocity = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        body.initial_dof_velocity = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0) # NOTE: Last 2 are grippers
         body.link_collision_filter = [
             self._cfg.ENV.COLLISION_FILTER_PANDA
         ] * self._RIGID_SHAPE_COUNT
@@ -140,6 +140,226 @@ class PandaHandCamera(Panda):
             point_states.append(point_state)
 
         return point_states
+    
+
+class PandaPerActCamera(Panda):
+    _URDF_FILE = os.path.join(
+        os.path.dirname(__file__),
+        "data",
+        "assets",
+        "franka_panda",
+        "panda_gripper_hand_camera.urdf",
+    )
+    _RIGID_SHAPE_COUNT = 12
+
+    LINK_IND_CAMERA = 11
+
+    _DEPTH_SCALE = 1000 # Convert depth scale meters into millimeters
+
+    def __init__(self, cfg, scene):
+        super().__init__(cfg, scene)
+
+        self.fingers_default_distance = 0.08
+
+        self.setup_wrist_camera(cfg)
+
+        self._cameras = []
+        self.setup_scene_cameras(cfg)
+
+        # Get rotation from URDF to OpenGL view frame.
+        orn = Rot.from_euler("XYZ", (-np.pi / 2, 0.0, -np.pi)).as_quat().astype(np.float32)
+        self._quat_urdf_to_opengl = torch.from_numpy(orn)
+
+    def setup_wrist_camera(self, cfg):
+
+        camera_wrist = PerActCamera()
+        camera_wrist.name = "wrist_cam"
+        camera_wrist.width = cfg.ENV.RENDERER_CAMERA_WIDTH
+        camera_wrist.height = cfg.ENV.RENDERER_CAMERA_HEIGHT
+        camera_wrist.vertical_fov = cfg.ENV.RENDERER_CAMERA_VERTICAL_FOV
+        camera_wrist.near = 0.035 # Minimum required distance to not clip with camera/panda
+        camera_wrist.far = 2.0
+        camera_wrist.position = [(0.0, 0.0, 0.0)] # NOTE: Overwritten later
+        camera_wrist.orientation = [(0.0, 0.0, 0.0, 0.0)] # NOTE: Overwritten later
+        self._scene.add_camera(camera_wrist)
+        self._camera_wrist = camera_wrist
+
+    def setup_scene_cameras(self, cfg):
+
+        camera_width = cfg.ENV.RENDERER_CAMERA_WIDTH
+        camera_height = cfg.ENV.RENDERER_CAMERA_HEIGHT
+        camera_vertical_fov = cfg.ENV.RENDERER_CAMERA_VERTICAL_FOV
+        camera_near = cfg.ENV.RENDERER_CAMERA_NEAR
+        camera_far = cfg.ENV.RENDERER_CAMERA_FAR
+        camera_up_vector = (0.0, 0.0, 1.0)
+        camera_target = list(cfg.BENCHMARK.GOAL_CENTER)
+        camera_target[1] += 0.2
+
+        radius = cfg.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_HOR
+        height = cfg.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_VER
+        angles = np.linspace(0, 2 * np.pi, cfg.ENV.PERACT_RENDERER_CAMERA_SCENE_AMOUNT, endpoint=False)
+
+        for camera_i, angle in enumerate(angles):
+            camera = PerActCamera()
+            camera.width = camera_width
+            camera.height = camera_height
+            camera.vertical_fov = camera_vertical_fov
+            camera.near = camera_near
+            camera.far = camera_far
+            camera.up_vector = camera_up_vector
+            
+            camera.name = f"panda_camera_side_{camera_i}"
+            camera.position = (camera_target[0] + radius*np.cos(angle),
+                               camera_target[1] + radius*np.sin(angle),
+                               camera_target[2] + height)
+            camera.target = camera_target
+
+            self._scene.add_camera(camera)
+            self._cameras.append(camera)
+
+    def render_camera_wrist(self):
+        # Get OpenGL view frame from URDF camera frame.
+        pos = self.body.link_state[0, self.LINK_IND_CAMERA, 0:3]
+        orn = self.body.link_state[0, self.LINK_IND_CAMERA, 3:7]
+        orn = _quaternion_multiplication(orn, self._quat_urdf_to_opengl)
+
+        # Set camera pose.
+        self._camera_wrist.update_attr_array("position", torch.tensor([0]), pos)
+        self._camera_wrist.update_attr_array("orientation", torch.tensor([0]), orn)
+
+        # Render camera image.
+        color = self._camera_wrist.color[0].numpy()[:,:,:3]
+        depth = self._camera_wrist.depth[0].numpy()
+        # depth = np.ones_like(self._camera_wrist.depth[0].numpy()) * self._camera_wrist.near
+        segmentation = self._camera_wrist.segmentation[0].numpy()
+
+        return (color, depth, segmentation)
+    
+    def camera_wrist_intrinsics(self):
+        return self._camera_wrist.intrinsic_matrix
+
+    def camera_wrist_extrinsics(self):
+        # Get OpenGL view frame from URDF camera frame.
+        pos = self.body.link_state[0, self.LINK_IND_CAMERA, 0:3]
+        orn = self.body.link_state[0, self.LINK_IND_CAMERA, 3:7]
+        orn = _quaternion_multiplication(orn, self._quat_urdf_to_opengl)
+
+        # Set camera pose.
+        self._camera_wrist.update_attr_array("position", torch.tensor([0]), pos)
+        self._camera_wrist.update_attr_array("orientation", torch.tensor([0]), orn)
+        
+        return self._camera_wrist.extrinsic_matrix
+    
+    def camera_wrist_near(self):
+        return 0#self._camera_wrist.near
+    
+    def camera_wrist_far(self):
+        return 1#self._camera_wrist.far
+    
+
+    def render_camera_scene(self, camera_number):
+        
+        # Render camera image.
+        color = self._cameras[camera_number].color[0].numpy()[:,:,:3]
+        depth = self._cameras[camera_number].depth[0].numpy()
+        segmentation = self._cameras[camera_number].segmentation[0].numpy()
+
+        return (color, depth, segmentation)
+    
+    def camera_scene_intrinsics(self, camera_number):
+        return self._cameras[camera_number].intrinsic_matrix
+    
+    def camera_scene_extrinsics(self, camera_number):
+        return self._cameras[camera_number].extrinsic_matrix
+    
+    def camera_scene_near(self, camera_number):
+        return 0#self._cameras[camera_number].near
+    
+    def camera_scene_far(self, camera_number):
+        return 1#self._cameras[camera_number].far
+    
+    
+    def gripper_pose(self):
+        return self.body.link_state[0, self.LINK_IND_HAND, 0:7].numpy()
+    
+    def gripper_open(self):
+        """Return gripper open. 1.0 if open, else 0.0"""
+        # NOTE: This is either dynamic or changes state @ beginnin. We want it when the gripper is actually closed
+        left_finger_pos = self.body.link_state[0,self.LINK_IND_FINGERS[0], 0:3].numpy()
+        right_finger_pos = self.body.link_state[0,self.LINK_IND_FINGERS[1], 0:3].numpy()
+        gripper_dist_norm = np.linalg.norm(right_finger_pos - left_finger_pos) / self.fingers_default_distance
+        # gripper_open = round(gripper_dist_norm,2)
+        gripper_open = float(gripper_dist_norm > 0.7) # NOTE: May be different per object
+        return gripper_open
+
+    def dof_force(self): #TODO: CHECK IF NECESSARY
+        return self.body.dof_force
+    
+    def joint_angles(self):
+        return self.body.dof_state[0, :-2, 0].numpy()
+    
+    def joint_velocities(self):
+        return self.body.dof_state[0, :-2, 1].numpy()
+    
+    def finger_positions(self):
+        return self.body.dof_state[0, -2:, 0].numpy()
+    
+class PerActCamera(easysim.Camera):
+
+    @property
+    def intrinsic_matrix(self):
+        K = np.eye(3, dtype=np.float32)
+        K[0, 0] = self._height / 2 / np.tan(np.deg2rad(self._vertical_fov) / 2)
+        K[1, 1] = self._height / 2 / np.tan(np.deg2rad(self._vertical_fov) / 2)
+        K[0, 2] = self._width / 2
+        K[1, 2] = self._height / 2
+        return K
+    
+    @property
+    def extrinsic_matrix(self):
+        if self._target is not None or self._up_vector is not None:
+            position, target, up = np.array(self._position), np.array(self._target), np.array(self.up_vector)
+            
+            # return self.compute_extrinsic_matrix(position, target)
+            return self._position_target_up_to_4x4mat(position, target, up)
+            
+        elif self._orientation is not None:
+            position_x, position_y, position_z = np.array(self._position[0])
+            x, y, z, w = self._orientation[0]
+            camera_pose = np.array([position_x,position_y,position_z,x,y,z,w])
+
+            return self._pose_to_4x4mat(camera_pose)
+
+        else:
+            raise NotImplementedError
+    
+    def _pose_to_4x4mat(self,pose):
+        transformation_matrix = np.eye(4)
+
+        transformation_matrix[:3, 3] = pose[:3]
+        rotation = Rot.from_quat(pose[3:])  # Quaternion format (x, y, z, w)
+        rotation_matrix_3x3 = rotation.as_matrix()  # Get as 3x3 matrix
+        transformation_matrix[:3, :3] = rotation_matrix_3x3
+        
+        return transformation_matrix
+    
+    def _position_target_up_to_4x4mat(self,position, target, up):
+        transformation_matrix = np.eye(4)
+
+        forward = np.array(target) - np.array(position)
+        forward /= np.linalg.norm(forward)
+        
+        right = np.cross(up, forward)
+        right /= np.linalg.norm(right)
+        
+        up_corrected = np.cross(right, forward)
+        
+        transformation_matrix[:3, 0] = -right
+        transformation_matrix[:3, 1] = up_corrected
+        transformation_matrix[:3, 2] = forward
+        transformation_matrix[:3, 3] = position
+
+        return transformation_matrix
 
 
 def _quaternion_multiplication(q1, q2):
