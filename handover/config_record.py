@@ -58,9 +58,9 @@ _C.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_VER = 0.3 # Vertical distance w.r.t
 
 _C.BENCHMARK.SETUP = "s1"
 
-_C.BENCHMARK.SPLIT = "train"
+_C.BENCHMARK.SPLIT = "val"
 
-_C.BENCHMARK.HANDOVER_OBJECTS = ["banana"]
+_C.BENCHMARK.HANDOVER_OBJECTS = ["pudding_box"]
 # "pitcher_base",
 # "bleach_cleanser",
 # "bowl",
