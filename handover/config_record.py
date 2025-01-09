@@ -79,7 +79,7 @@ _C.BENCHMARK.DRAW_GOAL = False
 _C.BENCHMARK.RECORD = True
 
 # _C.BENCHMARK.RECORD_DIR = "/media/ywatabe/ESD-USB/task_data/handoversim_v3/{}_{}".format(_C.BENCHMARK.SPLIT, _C.BENCHMARK.SETUP)
-_C.BENCHMARK.RECORD_DIR = "/home/bepgroup/Pojects/PerAct_ws/task_data/handoversim_v3/{}_{}".format(_C.BENCHMARK.SPLIT, _C.BENCHMARK.SETUP)
+_C.BENCHMARK.RECORD_DIR = "/home/bepgroup/Projects/PerAct_ws/task_data/handoversim_v3/{}_{}".format(_C.BENCHMARK.SPLIT, _C.BENCHMARK.SETUP)
 
 _C.BENCHMARK.RENDER_FRAME_RATE = 60 # camera feed rate - NOTE: PerAct Expert Demonstration recording collects data at 20 Hz
 
