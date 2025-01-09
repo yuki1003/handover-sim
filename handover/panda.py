@@ -161,7 +161,8 @@ class PandaPerActCamera(Panda):
 
         self.fingers_default_distance = 0.08
 
-        self.setup_wrist_camera(cfg) # TODO: Camera extrinsics and intrinsics are wrong
+        if self._cfg.ENV.PERACT_RENDERER_CAMERA_WRIST_USE:
+            self.setup_wrist_camera(cfg) # TODO: Camera extrinsics and intrinsics are wrong
 
         self._cameras = []
         self.setup_scene_cameras(cfg)

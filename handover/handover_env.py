@@ -424,14 +424,16 @@ class HandoverPerActStateEnv(HandoverEnv):
         observation["mano_body"] = self.mano.body
 
         # Set callback (and render)
-        observation["callback_render_camera_wrist"] = self.panda.render_camera_wrist
+        if self._cfg.ENV.PERACT_RENDERER_CAMERA_WRIST_USE:
+            observation["callback_render_camera_wrist"] = self.panda.render_camera_wrist
         observation["callback_render_camera_scene"] = self.panda.render_camera_scene
 
         # Proprioception wrist camera
-        observation["callback_camera_wrist_intrinsics"] = self.panda.camera_wrist_intrinsics
-        observation["callback_camera_wrist_extrinsics"] = self.panda.camera_wrist_extrinsics
-        observation["callback_camera_wrist_near"] = self.panda.camera_wrist_near
-        observation["callback_camera_wrist_far"] = self.panda.camera_wrist_far
+        if self._cfg.ENV.PERACT_RENDERER_CAMERA_WRIST_USE:
+            observation["callback_camera_wrist_intrinsics"] = self.panda.camera_wrist_intrinsics
+            observation["callback_camera_wrist_extrinsics"] = self.panda.camera_wrist_extrinsics
+            observation["callback_camera_wrist_near"] = self.panda.camera_wrist_near
+            observation["callback_camera_wrist_far"] = self.panda.camera_wrist_far
 
         # Proprioception scene cameras
         observation["callback_camera_scene_intrinsics"] = self.panda.camera_scene_intrinsics

@@ -23,6 +23,8 @@ from handover.benchmark_wrapper import HandoverStatusWrapper
 
 from handover.ycb import YCB
 
+import sys
+sys.path.append("/home/bepgroup/Projects/PerAct_ws/peract_colab")
 from rlbench.backend.observation import Observation
 from rlbench.demo import Demo
 
@@ -340,11 +342,13 @@ class BenchmarkRLBenchRecorder:
 
         for camera in cameras:
             if camera == "wrist":
-                camera_renders = obs[f"callback_render_camera_{camera}"]()
+                if self._cfg.ENV.PERACT_RENDERER_CAMERA_WRIST_USE:
+                    camera_renders = obs[f"callback_render_camera_{camera}"]()
                 # camera_near = obs[f"callback_camera_{camera}_near"]()
                 # camera_far = obs[f"callback_camera_{camera}_far"]()
-                camera = f"{camera}"
-                continue # Skip wrist camera
+                    camera = f"{camera}"
+                else:
+                    continue # Skip wrist camera
             else:
                 camera_renders = obs[f"callback_render_camera_scene"](camera)
                 # camera_near = obs[f"callback_camera_scene_near"]()
@@ -371,11 +375,13 @@ class BenchmarkRLBenchRecorder:
     def _save_rlbench_observation(self, obs):
 
         misc = dict()
+        
+        if self._cfg.ENV.PERACT_RENDERER_CAMERA_WRIST_USE:
+            misc['wrist_camera_intrinsics'] = obs["callback_camera_wrist_intrinsics"]()
+            misc['wrist_camera_extrinsics'] = obs["callback_camera_wrist_extrinsics"]()
+            misc['wrist_camera_near'] = obs["callback_camera_wrist_near"]()
+            misc['wrist_camera_far'] = obs["callback_camera_wrist_far"]()
 
-        misc['wrist_camera_intrinsics'] = obs["callback_camera_wrist_intrinsics"]()
-        misc['wrist_camera_extrinsics'] = obs["callback_camera_wrist_extrinsics"]()
-        misc['wrist_camera_near'] = obs["callback_camera_wrist_near"]()
-        misc['wrist_camera_far'] = obs["callback_camera_wrist_far"]()
         misc['object_state'] = obs["ycb_bodies"][list(obs["ycb_bodies"])[0]].link_state[0,-1,0:7].numpy()
 
         for camera_i in range(self._cfg.ENV.PERAC_TOTAL_CAMERA_SCENES):
