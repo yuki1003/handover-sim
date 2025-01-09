@@ -334,7 +334,7 @@ class BenchmarkRLBenchRecorder:
     def _save_render(self, render_dir, obs):
 
         cameras = ['wrist']
-        for camera_i in range(self._cfg.ENV.PERACT_RENDERER_CAMERA_SCENE_AMOUNT):
+        for camera_i in range(self._cfg.ENV.PERAC_TOTAL_CAMERA_SCENES):
             cameras.append(camera_i)
         render_types = ['rgb', 'depth', 'mask']
 
@@ -378,7 +378,7 @@ class BenchmarkRLBenchRecorder:
         misc['wrist_camera_far'] = obs["callback_camera_wrist_far"]()
         misc['object_state'] = obs["ycb_bodies"][list(obs["ycb_bodies"])[0]].link_state[0,-1,0:7].numpy()
 
-        for camera_i in range(self._cfg.ENV.PERACT_RENDERER_CAMERA_SCENE_AMOUNT):
+        for camera_i in range(self._cfg.ENV.PERAC_TOTAL_CAMERA_SCENES):
             view_i = f"view_{camera_i}"
             misc[f'{view_i}_camera_intrinsics'] = obs["callback_camera_scene_intrinsics"](camera_i)
             misc[f'{view_i}_camera_extrinsics'] = obs["callback_camera_scene_extrinsics"](camera_i)

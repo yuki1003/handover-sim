@@ -114,7 +114,7 @@ class BulletPanda:
 
         self._ee_idx = 7
 
-    def ik(self, q0, pos, rot=None, tol=1e-3, theta_tol=0.1, max_iter=1000):
+    def ik(self, q0, pos, rot=None, tol=1e-3, theta_tol=0.1, max_iter=100):
         self._set_joint_position(q0)
         for _ in range(max_iter):
             kwargs = {"restPoses": q0}
