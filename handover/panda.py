@@ -161,7 +161,7 @@ class PandaPerActCamera(Panda):
 
         self.fingers_default_distance = 0.08
 
-        self.setup_wrist_camera(cfg)
+        self.setup_wrist_camera(cfg) # TODO: Camera extrinsics and intrinsics are wrong
 
         self._cameras = []
         self.setup_scene_cameras(cfg)
@@ -180,7 +180,7 @@ class PandaPerActCamera(Panda):
         camera_wrist.near = 0.035 # Minimum required distance to not clip with camera/panda
         camera_wrist.far = 2.0
         camera_wrist.position = [(0.0, 0.0, 0.0)] # NOTE: Overwritten later
-        camera_wrist.orientation = [(0.0, 0.0, 0.0, 0.0)] # NOTE: Overwritten later
+        camera_wrist.orientation = [(0.0, 0.0, 0.0, 1.0)] # NOTE: Overwritten later
         self._scene.add_camera(camera_wrist)
         self._camera_wrist = camera_wrist
 
@@ -193,29 +193,32 @@ class PandaPerActCamera(Panda):
         camera_far = cfg.ENV.RENDERER_CAMERA_FAR
         camera_up_vector = (0.0, 0.0, 1.0)
         camera_target = list(cfg.BENCHMARK.GOAL_CENTER)
-        camera_target[1] += 0.2
+        # camera_target[1] += 0.2
 
-        radius = cfg.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_HOR
-        height = cfg.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_VER
+        radii = cfg.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_HOR
+        heights = cfg.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_VER
+        
         angles = np.linspace(0, 2 * np.pi, cfg.ENV.PERACT_RENDERER_CAMERA_SCENE_AMOUNT, endpoint=False)
+        
+        for radius in radii:
+            for height in heights:
+                for camera_i, angle in enumerate(angles):
+                    camera = PerActCamera()
+                    camera.width = camera_width
+                    camera.height = camera_height
+                    camera.vertical_fov = camera_vertical_fov
+                    camera.near = camera_near
+                    camera.far = camera_far
+                    camera.up_vector = camera_up_vector
+                    
+                    camera.name = f"panda_camera_side_{camera_i}_{radius}_{height}"
+                    camera.position = (camera_target[0] + radius*np.cos(angle),
+                                    camera_target[1] + radius*np.sin(angle),
+                                    camera_target[2] + height)
+                    camera.target = camera_target
 
-        for camera_i, angle in enumerate(angles):
-            camera = PerActCamera()
-            camera.width = camera_width
-            camera.height = camera_height
-            camera.vertical_fov = camera_vertical_fov
-            camera.near = camera_near
-            camera.far = camera_far
-            camera.up_vector = camera_up_vector
-            
-            camera.name = f"panda_camera_side_{camera_i}"
-            camera.position = (camera_target[0] + radius*np.cos(angle),
-                               camera_target[1] + radius*np.sin(angle),
-                               camera_target[2] + height)
-            camera.target = camera_target
-
-            self._scene.add_camera(camera)
-            self._cameras.append(camera)
+                    self._scene.add_camera(camera)
+                    self._cameras.append(camera)
 
     def render_camera_wrist(self):
         # Get OpenGL view frame from URDF camera frame.
@@ -317,13 +320,13 @@ class PerActCamera(easysim.Camera):
     
     @property
     def extrinsic_matrix(self):
-        if self._target is not None or self._up_vector is not None:
+        if self._target is not None or self._up_vector is not None: # Scene
             position, target, up = np.array(self._position), np.array(self._target), np.array(self.up_vector)
             
             # return self.compute_extrinsic_matrix(position, target)
             return self._position_target_up_to_4x4mat(position, target, up)
             
-        elif self._orientation is not None:
+        elif self._orientation is not None: # Wrist
             position_x, position_y, position_z = np.array(self._position[0])
             x, y, z, w = self._orientation[0]
             camera_pose = np.array([position_x,position_y,position_z,x,y,z,w])
