@@ -4,7 +4,11 @@
 
 import os
 import sys
+
+os.environ['PYOPENGL_PLATFORM'] = 'egl'
+
 sys.path = [p for p in sys.path if '/peract/' not in p]
+sys.path.append("/home/begroup/Projects/PerAct_ws/peract_colab")
 
 from matplotlib import pyplot as plt
 
@@ -28,6 +32,7 @@ import pybullet
 import pybullet_utils.bullet_client as bullet_client
 
 from demo_benchmark_wrapper import start_conf, time_wait
+# from examples.demo_benchmark_wrapper import start_conf, time_wait
 
 # Use urdf file for inverse kinematics
 panda_urdf_file = os.path.join(
@@ -427,7 +432,8 @@ class PerActAgent:
         if not self._in_approach_region:
             (continuous_trans, continuous_quat, gripper_open, continuous_trans_confidence, continuous_quat_confidence), \
                 (voxel_grid, coord_indices, rot_and_grip_indices, gripper_open) = self._agent.forward(obs, timestep)
-            print("Prediction Confidence:",continuous_trans_confidence)
+            print("Prediction Confidence (trans):",continuous_trans_confidence)
+            print("Prediction Confidence (rot):",continuous_quat_confidence)
 
             # # # Things to visualize NOTE DEBUG STUFF
             vis_voxel_grid = voxel_grid[0].detach().cpu().numpy()
@@ -474,7 +480,7 @@ class PerActAgent:
             fig.savefig(f"timestep_{timestep}.png")
             plt.close()
 
-            if continuous_trans_confidence < 0.02:#0085:
+            if continuous_trans_confidence < 0.08:#0085:
                 distance = 0.3
             else:
                 distance = 0.15

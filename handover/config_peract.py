@@ -26,26 +26,29 @@ _C.ENV.TABLE_BASE_POSITION = (0.61, 0.0, 0.0) #(0.61, 0.28, 0.0)
 _C.ENV.TABLE_BASE_ORIENTATION = (0.0, 0.0, 0.7071068, 0.7071068) #(0, 0, 0, 1)
 _C.ENV.PANDA_INITIAL_POSITION = (0.0, -1.285, 0, -2.356, 0.0, 1.571, 0.785, 0.04, 0.04)
 _C.ENV.YCB_LOAD_MODE = "grasp_only"#"all"# 
+_C.ENV.YCB_MANO_START_FRAME = "last"
 _C.ENV.RENDERER_CAMERA_WIDTH = 128 #1600
 _C.ENV.RENDERER_CAMERA_HEIGHT = 128 #900
 _C.ENV.RENDERER_CAMERA_VERTICAL_FOV = 60 #60.0
 _C.ENV.RENDERER_CAMERA_NEAR = 0.1 #NOTE: Starting the render
 _C.ENV.RENDERER_CAMERA_FAR = 4 #10 #NOTE:How far the render is (Cut-off point)
-_C.ENV.PERACT_RENDERER_CAMERA_SCENE_AMOUNT = 3 # Create radial number of cameras
-_C.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_HOR = 1 # Horizontal distance w.r.t. goal
-_C.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_VER = 0.2 # Vertical distance w.r.t. goal
+_C.ENV.PERACT_RENDERER_CAMERA_SCENE_AMOUNT = 6 # Create radial number of cameras
+_C.ENV.PERACT_RENDERER_CAMERA_WRIST_USE = False
+_C.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_HOR = (0.5,) # Horizontal distance w.r.t. goal
+_C.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_VER = (0.3,) # Vertical distance w.r.t. goal
+_C.ENV.PERAC_TOTAL_CAMERA_SCENES = _C.ENV.PERACT_RENDERER_CAMERA_SCENE_AMOUNT * len(_C.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_HOR) * len(_C.ENV.PERACT_RENDERER_CAMERA_SCENE_DISTANCE_VER)
 
 # ---------------------------------------------------------------------------- #
 # Benchmark config
 # ---------------------------------------------------------------------------- #
 _C.BENCHMARK.SETUP = "s1" # {'s0', 's1', etc.}
-_C.BENCHMARK.SPLIT = "train" #{'train', 'val', 'test'}
-_C.BENCHMARK.HANDOVER_OBJECTS = ["banana", "power_drill"]
+_C.BENCHMARK.SPLIT = "val" #{'train', 'val', 'test'}
+_C.BENCHMARK.HANDOVER_OBJECTS = ["mug"]
 
 _C.BENCHMARK.MAX_EPISODE_TIME = 10.0
 _C.BENCHMARK.DRAW_GOAL = False
 _C.BENCHMARK.RENDER_FRAME_RATE = 60 # camera feed rate - NOTE: PerAct Expert Demonstration recording collects data at 20 Hz
-_C.BENCHMARK.TIME_WAIT = 3.0
+_C.BENCHMARK.TIME_WAIT = 0.0#3.0
 _C.BENCHMARK.TIME_ACTION_REPEAT = 0.5
 
 # ---------------------------------------------------------------------------- #
@@ -54,14 +57,15 @@ _C.BENCHMARK.TIME_ACTION_REPEAT = 0.5
 _C.AGENT = CN()
 
 # _C.AGENT.model_path = "/home/ywatabe/Projects/PerAct/models/2024-11-29_04-23/best_model_test"#"/media/ywatabe/B4F2AA4FF2AA15A0/handoversim/outputs/models/handing_over_banana/2024-12-10_11-44/best_model_general"
-_C.AGENT.model_path = "/home/ywatabe/Projects/PerAct/outputs/models/handing_over_banana/2024-12-10_14-59/best_model_general"
+# _C.AGENT.model_path = "/home/ywatabe/Projects/PerAct/outputs/models/handing_over_banana/2024-12-10_14-59/best_model_general"
 # _C.AGENT.model_path = "/home/ywatabe/Projects/PerAct/models/2024-11-29_04-23/best_model_train"
 # _C.AGENT.model_path = "/home/ywatabe/Projects/PerAct/outputs/models/handing_over_banana/2024-12-12_17-25/best_model_general" # {crop skip 10}
 # _C.AGENT.model_path = "/home/ywatabe/Projects/PerAct/outputs/models/handing_over_banana/2024-12-12_21-23/best_model_general" # {crop skip 5}
-_C.AGENT.model_path = "/home/ywatabe/Projects/PerAct/outputs/models/handing_over_banana/2024-12-16_11-25/best_model_general" # {crop skip 5 new}
+# _C.AGENT.model_path = "/home/ywatabe/Projects/PerAct/outputs/models/handing_over_banana/2024-12-16_11-25/best_model_general" # {crop skip 5 new}
 # _C.AGENT.model_path = "/home/ywatabe/Projects/PerAct/outputs/models/handing_over_banana/2024-12-13_14-46/best_model_test" # Check the approach
 # _C.AGENT.model_path = "/home/ywatabe/Projects/PerAct/outputs/models/handing_over_banana/2024-12-26_16-29/best_model_train" # Check the approach new
-_C.AGENT.language_goal = "handing over banana"
+_C.AGENT.model_path = "/home/ywatabe/Projects/PerAct/outputs/2025-01-14_18-34/last_model"
+_C.AGENT.language_goal = "handing over mug"
 
 _C.AGENT.PERCEIVOR_IO = CN()
 _C.AGENT.PERCEIVOR_IO.depth = 6
@@ -90,7 +94,7 @@ _C.AGENT.PERCEIVOR_IO.final_dim = 64
 
 _C.AGENT.PERACT = CN()
 _C.AGENT.PERACT.coordinate_bounds = [0.11, -0.5, 0.8, 1.11, 0.5, 1.8]
-_C.AGENT.PERACT.camera_names = ["view_0", "view_1", "view_2"]
+_C.AGENT.PERACT.camera_names = ["view_0", "view_1", "view_2", "view_3", "view_4", "view_5"] # TODO: Change to settings json
 _C.AGENT.PERACT.batch_size = 1
 _C.AGENT.PERACT.voxel_size = _C.AGENT.PERCEIVOR_IO.voxel_size
 _C.AGENT.PERACT.voxel_feature_size = 3
