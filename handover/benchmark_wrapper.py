@@ -137,7 +137,7 @@ class HandoverStatusWrapper(easysim.SimulatorWrapper):
                 self._dropped = True
 
         if self._dropped:
-            status |= EpisodeStatus.FAILURE_OBJECT_DROP
+            status = EpisodeStatus.FAILURE_OBJECT_DROP
 
         if status != 0:
             return status
