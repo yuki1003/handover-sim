@@ -428,10 +428,14 @@ class BenchmarkRLBenchRecorder:
     def _pose_to_4x4mat(self, pose):
         transformation_matrix = np.eye(4)
 
-        transformation_matrix[:3, 3] = pose[:3]
-        rotation = Rot.from_quat(pose[3:])  # Quaternion format (x, y, z, w)
-        rotation_matrix_3x3 = rotation.as_matrix()  # Get as 3x3 matrix
-        transformation_matrix[:3, :3] = rotation_matrix_3x3
+        try:
+            transformation_matrix[:3, 3] = pose[:3]
+            rotation = Rot.from_quat(pose[3:])  # Quaternion format (x, y, z, w)
+            rotation_matrix_3x3 = rotation.as_matrix()  # Get as 3x3 matrix
+            transformation_matrix[:3, :3] = rotation_matrix_3x3
+
+        except Exception as error:
+            print(error)
         
         return transformation_matrix
 
