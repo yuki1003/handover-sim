@@ -14,7 +14,7 @@ _C = cfg
 # ---------------------------------------------------------------------------- #
 # Simulation config
 # ---------------------------------------------------------------------------- #
-_C.SIM.RENDER = False
+_C.SIM.RENDER = True
 
 _C.SIM.TIME_STEP = 0.001
 
@@ -35,6 +35,8 @@ _C.ENV.TABLE_BASE_ORIENTATION = (0.0, 0.0, 0.7071068, 0.7071068) #(0, 0, 0, 1)
 _C.ENV.PANDA_INITIAL_POSITION = (0.0, -1.285, 0, -2.356, 0.0, 1.571, 0.785, 0.04, 0.04)
 
 _C.ENV.YCB_LOAD_MODE = "all" # "grasp_only"
+
+_C.ENV.YCB_MANO_START_FRAME = "last"
 
 _C.ENV.RENDERER_CAMERA_WIDTH = 128 #1600
 
@@ -64,7 +66,7 @@ _C.BENCHMARK.SETUP = "s1"
 
 _C.BENCHMARK.SPLIT = "train"
 
-_C.BENCHMARK.HANDOVER_OBJECTS = ["banana"]
+_C.BENCHMARK.HANDOVER_OBJECTS = ["mug"]
 
 _C.BENCHMARK.DRAW_GOAL = False
 
@@ -75,7 +77,7 @@ _C.BENCHMARK.RECORD_DIR = "/home/bepgroup/Projects/PerAct_ws/task_data/handovers
 
 _C.BENCHMARK.RENDER_FRAME_RATE = 60 # camera feed rate - NOTE: PerAct Expert Demonstration recording collects data at 20 Hz
 
-_C.BENCHMARK.TIME_WAIT = 3.0
+_C.BENCHMARK.TIME_WAIT = 1.0
 
 _C.BENCHMARK.MAX_EPISODE_TIME = 7.0 # Sometimes taking too long. Limit to 7
 
