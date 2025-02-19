@@ -280,6 +280,38 @@ class YangICRA2021Policy:
                     action = self._action_repeat.copy()
 
             if self._done: # NOTE: gripper at object
+                # print("Grasping done. Retracting.")
+
+                # object_pose = self._get_object_pose(obs)
+                # print("object_pose:",object_pose)
+                # opts = compose_qq(object_pose, self._current_grasps) # Convert orientations of current_grasps into object_pose (in world frame)
+
+                # opts = compose_qq(opts, self._to_ee_frame) # Convert the object grasps to ee_frame (apparently only rotation of quaternion)
+
+                # scene_bounds = np.array([0.11, -0.5, 0.8, 1.11, 0.5, 1.8])
+                # object_grasps_trans = (opts[:,:3] - scene_bounds[:3]) / (scene_bounds[3:] - scene_bounds[:3]) * 100
+                # object_grasps_rot = self.quaternion_to_discrete_euler(opts[:,3:7], 5)
+                # object_grasps_voxel = np.concatenate((object_grasps_trans.astype(int), object_grasps_rot), axis=1)
+                # print("\nObject Grasps (ee):")
+                # for i, object_grasps_voxel_i in enumerate(object_grasps_voxel):
+                #     print(i, object_grasps_voxel_i)
+                # expert_grasp = self._q_grasp
+                
+                # scene_bounds = np.array([0.11, -0.5, 0.8, 1.11, 0.5, 1.8])
+                # expert_grasp_trans = (expert_grasp[:3] - scene_bounds[:3]) / (scene_bounds[3:] - scene_bounds[:3]) * 100
+                # expert_grasp_rot = self.quaternion_to_discrete_euler(expert_grasp[3:7], 5)
+                # expert_grasp_voxel = np.concatenate((expert_grasp_trans.astype(int), expert_grasp_rot))
+                # print("\nExpert Grasp (chosen):\n",expert_grasp_voxel)
+
+                # expert_grasp = obs["callback_gripper_pose"]()
+                # scene_bounds = np.array([0.11, -0.5, 0.8, 1.11, 0.5, 1.8])
+                # expert_grasp_trans = (expert_grasp[:3] - scene_bounds[:3]) / (scene_bounds[3:] - scene_bounds[:3]) * 100
+                # expert_grasp_rot = self.quaternion_to_discrete_euler(expert_grasp[3:7], 5)
+                # expert_grasp_voxel = np.concatenate((expert_grasp_trans.astype(int), expert_grasp_rot))
+                # print("\nExpert Grasp (observation/actual):\n",expert_grasp_voxel)
+
+                # assert False
+                
                 if self._done_frame is None:
                     self._done_frame = obs["frame"]
                 if obs["frame"] < self._done_frame + self._steps_close_gripper: # NOTE: Run action to close gripper
@@ -316,6 +348,13 @@ class YangICRA2021Policy:
 
     def _get_ee_pose(self, obs):
         return obs["panda_body"].link_state[0, obs["panda_link_ind_hand"], 0:7].numpy()
+    
+    # def quaternion_to_discrete_euler(self, quaternion, resolution): # REMOVE LATER
+    #     euler = Rot.from_quat(quaternion).as_euler('xyz', degrees=True) + 180
+    #     assert np.min(euler) >= 0 and np.max(euler) <= 360
+    #     disc = np.around((euler / resolution)).astype(int)
+    #     disc[disc == int(360 / resolution)] = 0
+    #     return disc
 
     def _get_reactive_policy_action(self, current_cfg, object_pose, ee_pose, timestamp):
         if self._q_standoff is None:
@@ -323,9 +362,9 @@ class YangICRA2021Policy:
         else:
             q0 = self._q_standoff
 
-        opts = self._current_grasps
-        opts = compose_qq(object_pose, opts)
-        opts = compose_qq(opts, self._to_ee_frame)
+        opts = self._current_grasps # Loads the grasps based on handover object
+        opts = compose_qq(object_pose, opts) # Convert orientations of current_grasps into object_pose (in world frame)
+        opts = compose_qq(opts, self._to_ee_frame) # Convert the object grasps to ee_frame (apparently only rotation of quaternion)
 
         opts_grasp = opts
         opts_standoff = compose_qq(opts_grasp, self._standoff_offset)
