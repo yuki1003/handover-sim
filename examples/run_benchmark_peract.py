@@ -318,6 +318,9 @@ class PerActAgent:
 
         self._start_position = self._cfg.ENV.PANDA_INITIAL_POSITION
 
+        self._at_approach_pose = AtPoseCondition(position_tol=0.005, rotation_tol=np.radians(15.0))
+        self._at_grasp_pose = AtPoseCondition(position_tol=0.005, rotation_tol=np.radians(15.0))
+
         self._bullet_panda = BulletPanda(
             panda_urdf_file, self._cfg.ENV.PANDA_BASE_POSITION, self._cfg.ENV.PANDA_BASE_ORIENTATION
         )
@@ -338,34 +341,32 @@ class PerActAgent:
         self._done_frame = None
         self._action_repeat = None
         self._back = None
-        self._in_approach_region = False
+        self._in_approach_phase = True
         self._predicted_ee_pose = None
 
-        self._count = 0
+        self._count = 1
 
     def forward(self, obs):
         
         # Wait
         if obs["frame"] < self._steps_wait:
             action = self._start_position
-        # Forward and go back
         else:
             # Approach
             if not self._done:
                 if (obs["frame"] - self._steps_wait) % self._steps_action_repeat == 0:
                     current_cfg = self._get_current_cfg(obs)
+                    ee_pose = self._get_ee_pose(obs)
                     # gripper_joint_positions = current_cfg[7:9]
                     # gripper_open = True if sum(gripper_joint_positions) > 0.8 else False
                     # timestep = int(obs["frame_count"]/100)
                     timestep = self._count#int(obs["frame_count"]/100)
-                    self._count += 2
+                    # self._count += 2
                     policy_obs = self._preprocess_obs(obs)
                     policy_obs["gripper_joint_positions"] = current_cfg[7:9]
                     policy_obs["gripper_open"] = True if sum(current_cfg[7:9]) > 0.8 else False
                     # object_pose = self._get_object_pose(obs)
-                    # ee_pose = self._get_ee_pose(obs)
-                    action = self._get_policy_action_grasp(policy_obs, timestep, current_cfg)
-                    # action = self._get_policy_action_approach(policy_obs, timestep, current_cfg)
+                    action = self._get_policy_action(policy_obs, timestep, current_cfg, ee_pose)
                     self._action_repeat = action.copy()
                 else:
                     action = self._action_repeat.copy()
@@ -424,101 +425,25 @@ class PerActAgent:
         ee_pos, ee_rot = self._bullet_panda._fk(cfg)
         return ee_pos, ee_rot
     
-    def _get_policy_action_grasp(self, obs, timestep, current_cfg, debug=False):
+    def _get_policy_action(self, obs, timestep, current_cfg, ee_pose, debug=False):
 
         action = current_cfg.copy()
         action[7:9] = 0.04
 
-        if not self._in_approach_region:
+        if not self._at_approach_pose._goal_pose is None:
+            print("distance to approach pose:", np.linalg.norm(ee_pose[:3]-self._at_approach_pose._goal_pose[:3]))
+            if self._at_approach_pose(ee_pose):
+                self._in_approach_phase = False
+                print("In grasp region - setting approach phase: False")
+
+        if self._in_approach_phase:
+
+            print("How often is it in approach region?")
             (continuous_trans, continuous_quat, gripper_open, continuous_trans_confidence, continuous_quat_confidence), \
                 (voxel_grid, coord_indices, rot_and_grip_indices, gripper_open) = self._agent.forward(obs, timestep)
             print("Prediction Confidence (trans):",continuous_trans_confidence)
-            print("Prediction Confidence (rot):",continuous_quat_confidence)
 
-            # # # Things to visualize NOTE DEBUG STUFF
-            vis_voxel_grid = voxel_grid[0].detach().cpu().numpy()
-            vis_trans_coord = coord_indices[0].detach().cpu().numpy().tolist()
-
-            voxel_size = 0.045
-            voxel_scale = voxel_size * 100
-            gripper_pose_mat = get_gripper_render_pose(voxel_scale,
-                                                    self._cfg.AGENT.PERACT.coordinate_bounds[:3],
-                                                    continuous_trans,
-                                                    continuous_quat)
-
-            rendered_img_0 = visualise_voxel(vis_voxel_grid,
-                                            None,
-                                            [vis_trans_coord],
-                                            None,
-                                            voxel_size=voxel_size,
-                                            rotation_amount=np.deg2rad(0),
-                                            render_gripper=True,
-                                            gripper_pose=gripper_pose_mat,
-                                            gripper_mesh_scale=voxel_scale)
-
-            rendered_img_270 = visualise_voxel(vis_voxel_grid,
-                                            None,
-                                            [vis_trans_coord],
-                                            None,
-                                            voxel_size=voxel_size,
-                                            rotation_amount=np.deg2rad(45),
-                                            render_gripper=True,
-                                            gripper_pose=gripper_pose_mat,
-                                            gripper_mesh_scale=voxel_scale)
-            
-            # Plot figures into a NumPy array
-            fig = plt.figure(figsize=(20, 15))
-            fig.add_subplot(1, 2, 1)
-            plt.imshow(rendered_img_0)
-            plt.axis('off')
-            plt.title("Front view")
-            fig.add_subplot(1, 2, 2)
-            plt.imshow(rendered_img_270)
-            plt.axis('off')
-            plt.title("Side view")
-
-            fig.savefig(f"timestep_{timestep}.png")
-            plt.close()
-
-            if continuous_trans_confidence < 0.08:#0085:
-                distance = 0.3
-            else:
-                distance = 0.15
-                self._in_approach_region = True
-                self._predicted_ee_pose = np.concatenate((continuous_trans, continuous_quat))
-            pose_quat_wxyz = torch.from_numpy(np.concatenate((np.array([continuous_quat[3]]), continuous_quat[:3])))
-            pose_rot_matrix = quaternion_to_matrix(pose_quat_wxyz).numpy()
-            continuous_trans_approach = continuous_trans - distance * pose_rot_matrix[:,2]
-            pred_pose = np.concatenate((continuous_trans_approach, continuous_quat))
-        else:
-            gripper_pred_curr_dist = np.linalg.norm(self._predicted_ee_pose[:3]-self._cfg_to_ee(current_cfg)[0])
-            print("gripper_pred_curr_dist:",gripper_pred_curr_dist)
-            if gripper_pred_curr_dist > 0.04:
-                pred_pose = self._predicted_ee_pose
-            else:
-                self._done = True
-                return action
-            
-        ik_cfg = self._compute_ik(pred_pose, current_cfg)
-        if ik_cfg is None:
-            print(f"No feasible inverse kinematics found for {pred_pose}")
-            self._in_approach_region = False
-            return action
-        action[0:7] = ik_cfg
-
-        return action
-    
-    def _get_policy_action_approach(self, obs, timestep, current_cfg, debug=True): # Approach
-
-        action = current_cfg.copy()
-        action[7:9] = 0.04
-
-        if not self._in_approach_region:
-            (continuous_trans, continuous_quat, gripper_open, continuous_trans_confidence, continuous_quat_confidence), \
-                (voxel_grid, coord_indices, rot_and_grip_indices, gripper_open) = self._agent.forward(obs, timestep)
-            print("Prediction Confidence:",continuous_trans_confidence)
-
-            # # # Things to visualize NOTE DEBUG STUFF
+            # Things to visualize NOTE DEBUG STUFF
             if debug:
                 vis_voxel_grid = voxel_grid[0].detach().cpu().numpy()
                 vis_trans_coord = coord_indices[0].detach().cpu().numpy().tolist()
@@ -563,34 +488,48 @@ class PerActAgent:
 
                 fig.savefig(f"timestep_{timestep}.png")
                 plt.close()
-                
-            if continuous_trans_confidence < 0.03:#if continuous_trans_confidence < 0.0085:
-                distance = 0.3
-            else:
-                distance = -0.3
-                self._in_approach_region = True
-                pose_quat_wxyz = torch.from_numpy(np.concatenate((np.array([continuous_quat[3]]), continuous_quat[:3])))
-                pose_rot_matrix = quaternion_to_matrix(pose_quat_wxyz).numpy()
-                continuous_trans_grasp = continuous_trans - distance * pose_rot_matrix[:,2]
-                self._predicted_ee_pose = np.concatenate((continuous_trans_grasp, continuous_quat))
-            pred_pose = np.concatenate((continuous_trans, continuous_quat))
-        else:
-            gripper_pred_curr_dist = np.linalg.norm(self._predicted_ee_pose[:3]-self._cfg_to_ee(current_cfg)[0])
-            print("gripper_pred_curr_dist:",gripper_pred_curr_dist)
-            if gripper_pred_curr_dist > 0.04:
-                pred_pose = self._predicted_ee_pose
-            else:
-                self._done = True
-                return action
+
+            # predicted_ee_pose = np.concatenate((continuous_trans, continuous_quat))
+            continuous_trans_grasp = self._move_ee_back(continuous_trans, continuous_quat, -0.05)
+            self._predicted_ee_pose = np.concatenate((continuous_trans_grasp, continuous_quat))
+            continuous_trans_approach = self._move_ee_back(continuous_trans, continuous_quat, 0.1)
+            self._predicted_ee_pose_approach = np.concatenate((continuous_trans_approach, continuous_quat))
+
+            self._at_approach_pose.set_goal(self._predicted_ee_pose_approach)
+            # self._in_approach_region.set_region(self._predicted_ee_pose_approach, self._predicted_ee_pose) # Set approach region
+            self._at_grasp_pose.set_goal(self._predicted_ee_pose)
             
-        ik_cfg = self._compute_ik(pred_pose, current_cfg)
-        if ik_cfg is None:
-            print(f"No feasible inverse kinematics found for {pred_pose}")
-            self._in_approach_region = False
-            return action
-        action[0:7] = ik_cfg
+            approach_pose = self._predicted_ee_pose_approach.copy()
+            approach_pose[0:3] = simple_extend(ee_pose[0:3], continuous_trans_approach[0:3], step_size = 0.05)
+            ik_cfg = self._compute_ik(approach_pose, current_cfg)
+            if ik_cfg is None:
+                print(f"No feasible inverse kinematics found for {approach_pose}")
+            action[0:7] = ik_cfg
+            # print(self._predicted_ee_pose_approach, self._predicted_ee_pose, ee_pose)
+        else:
+            self._in_approach_phase = False
+            print("How often is it in grasp region?")
+            # print(self._predicted_ee_pose_approach, self._predicted_ee_pose, ee_pose)
+            if not self._at_grasp_pose(ee_pose):
+                # Go to grasp pose.
+                q_next = self._predicted_ee_pose.copy() # The prediction
+                q_next[0:3] = simple_extend(ee_pose[0:3], self._predicted_ee_pose[0:3], step_size=0.05) # Move slowly forward
+                ik_cfg = self._compute_ik(q_next, current_cfg) # Compute IK
+                if ik_cfg is None:
+                    print(f"No feasible inverse kinematics found for {q_next}")
+                action[0:7] = ik_cfg # Update action
+            else:
+                # Move on to closing gipper and backing.
+                self._done = True
 
         return action
+    
+    def _move_ee_back(self, continuous_trans, continuous_quat, distance):
+        """move continuous_trans forward w.r.t. ee orientation by distance. Positive backward, negative forward"""
+        pose_quat_wxyz = torch.from_numpy(np.concatenate((np.array([continuous_quat[3]]), continuous_quat[:3])))
+        pose_rot_matrix = quaternion_to_matrix(pose_quat_wxyz).numpy()
+        moved_continuous_trans = continuous_trans - distance * pose_rot_matrix[:,2]
+        return moved_continuous_trans
 
     def _get_back(self, current_cfg):
         pos = self._cfg.BENCHMARK.GOAL_CENTER
