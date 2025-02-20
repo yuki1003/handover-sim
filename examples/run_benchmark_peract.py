@@ -318,7 +318,9 @@ class PerActAgent:
 
         self._start_position = self._cfg.ENV.PANDA_INITIAL_POSITION
 
-        self._at_approach_pose = AtPoseCondition(position_tol=0.005, rotation_tol=np.radians(15.0))
+        self._in_approach_region = ApproachRegionCondition(
+            slope=50.0, pos_tol=1.5e-2, max_pos_tol=4e-2, theta_tol=np.radians(15.0)
+        )
         self._at_grasp_pose = AtPoseCondition(position_tol=0.005, rotation_tol=np.radians(15.0))
 
         self._bullet_panda = BulletPanda(
@@ -341,7 +343,6 @@ class PerActAgent:
         self._done_frame = None
         self._action_repeat = None
         self._back = None
-        self._in_approach_phase = True
         self._predicted_ee_pose = None
 
         self._count = 1
@@ -430,13 +431,7 @@ class PerActAgent:
         action = current_cfg.copy()
         action[7:9] = 0.04
 
-        if not self._at_approach_pose._goal_pose is None:
-            print("distance to approach pose:", np.linalg.norm(ee_pose[:3]-self._at_approach_pose._goal_pose[:3]))
-            if self._at_approach_pose(ee_pose):
-                self._in_approach_phase = False
-                print("In grasp region - setting approach phase: False")
-
-        if self._in_approach_phase:
+        if not self._in_approach_region(ee_pose):
 
             print("How often is it in approach region?")
             (continuous_trans, continuous_quat, gripper_open, continuous_trans_confidence, continuous_quat_confidence), \
@@ -491,23 +486,20 @@ class PerActAgent:
 
             # predicted_ee_pose = np.concatenate((continuous_trans, continuous_quat))
             continuous_trans_grasp = self._move_ee_back(continuous_trans, continuous_quat, -0.05)
-            self._predicted_ee_pose = np.concatenate((continuous_trans_grasp, continuous_quat))
+            self._predicted_ee_pose = np.concatenate((continuous_trans_grasp, continuous_quat)), self._to_ee_frame
             continuous_trans_approach = self._move_ee_back(continuous_trans, continuous_quat, 0.1)
-            self._predicted_ee_pose_approach = np.concatenate((continuous_trans_approach, continuous_quat))
+            self._predicted_ee_pose_approach = np.concatenate((continuous_trans_approach, continuous_quat)), self._to_ee_frame
 
-            self._at_approach_pose.set_goal(self._predicted_ee_pose_approach)
-            # self._in_approach_region.set_region(self._predicted_ee_pose_approach, self._predicted_ee_pose) # Set approach region
+            self._in_approach_region.set_region(self._predicted_ee_pose_approach, self._predicted_ee_pose) # Set approach region
             self._at_grasp_pose.set_goal(self._predicted_ee_pose)
             
             approach_pose = self._predicted_ee_pose_approach.copy()
-            approach_pose[0:3] = simple_extend(ee_pose[0:3], continuous_trans_approach[0:3], step_size = 0.05)
+            approach_pose[0:3] = simple_extend(ee_pose[0:3], continuous_trans_approach[0:3], step_size = 0.1)
             ik_cfg = self._compute_ik(approach_pose, current_cfg)
             if ik_cfg is None:
                 print(f"No feasible inverse kinematics found for {approach_pose}")
             action[0:7] = ik_cfg
-            # print(self._predicted_ee_pose_approach, self._predicted_ee_pose, ee_pose)
         else:
-            self._in_approach_phase = False
             print("How often is it in grasp region?")
             # print(self._predicted_ee_pose_approach, self._predicted_ee_pose, ee_pose)
             if not self._at_grasp_pose(ee_pose):
